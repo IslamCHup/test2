@@ -3,24 +3,24 @@ package database
 import (
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/islamchupanov/tz1/internal/config"
 
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func InitDB(cfg config.DBConfig, logger *slog.Logger) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode,
-	)
+	// Use SQLite for simplicity - stores data in devices.db file
+	dbPath := filepath.Join(".", "devices.db")
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		if logger != nil {
-			logger.Error("failed to connect to postgres", "error", err)
+			logger.Error("failed to connect to sqlite", "error", err)
 		}
 		return nil, err
 	}
@@ -44,11 +44,7 @@ func InitDB(cfg config.DBConfig, logger *slog.Logger) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	logger.Info("connected to postgres",
-		"host", cfg.Host,
-		"port", cfg.Port,
-		"db", cfg.Name,
-	)
+	logger.Info("connected to sqlite", "path", dbPath)
 
 	return db, nil
 }
