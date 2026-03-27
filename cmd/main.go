@@ -17,7 +17,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	logger := logger.InitLogger(cfg.LogLevel)
+	logger := logger.InitLog(cfg.LogLevel)
 
 	dbConn, err := database.InitDB(cfg.DB, logger)
 	if err != nil {
@@ -33,8 +33,8 @@ func main() {
 	logger.Info("database migration completed")
 
 	deviceRepo := repository.NewDeviceRepository(dbConn, logger)
-	deviceService := service.NewDeviceService(deviceRepo)
-	deviceHandler := handler.NewDeviceHandler(deviceService)
+	deviceService := service.NewDeviceService(deviceRepo, logger)
+	deviceHandler := handler.NewDeviceHandler(deviceService, logger)
 
 	r := router.SetupRouter(deviceHandler)
 
