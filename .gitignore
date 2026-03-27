@@ -1,37 +1,28 @@
 ```
-# Go build artifacts
-*.o
-*.a
-*.so
+# Go binaries
 *.exe
 *.dll
-*.dylib
+*.so
+*.a
+*.o
+*.out
 *.test
-*.prof
 
-# Go cache and tools
-go/pkg/
-go/build/
-vendor/
-*.mod
-*.sum
+# Go build artifacts
+bin/
+_dist/
+_build/
 
 # Dependencies
-node_modules/
 vendor/
-
-# Build directories
-build/
-dist/
-target/
-
-# Environment and config
-.env
-.env.local
-.env.*
 
 # Logs
 *.log
+
+# Environment
+.env
+.env.local
+*.env.*
 
 # Editors
 .vscode/
@@ -39,112 +30,12 @@ target/
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# Python (if mixed project)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-*.so
-
-# Java (if mixed project)
-*.class
-*.jar
-*.war
-*.ear
-*.nar
-target/
-.gradle/
-build/
-.settings/
-bin/
-gen/
-
-# C/C++ (if mixed project)
-*.i
-*.ii
-*.s
-*.su
-*.lo
-*.la
-.deps/
-.libs/
-aclocal.m4
-autom4te.cache/
-Makefile.in
-Makefile
-conftest*
-config.h*
-config.log
-config.status
-config.cache
-.libs/
-*.tab.c
-*.tab.h
-*.yacc.c
-*.lex.c
-*.output
-*.gcda
-*.gcno
-*.gcov
-*.lcov
-*.info
-
-# Ruby (if mixed project)
-*.gem
-*.rbc
-.bundle/
-.ruby-version
-.rbx/
-
-# Node.js (if mixed project)
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-node_modules/
-jspm_packages/
-*.js.map
-*.ts.map
-
-# Compression
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
-
-# Temporary files
-*.tmp
-*.temp
-*~
+# OS
+.DS_Store
+Thumbs.db
 ```
