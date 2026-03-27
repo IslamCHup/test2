@@ -1,20 +1,21 @@
 ```
-# Go binaries
-*.exe
-*.dll
-*.so
-*.a
-*.o
-*.out
-*.test
-
-# Go build artifacts
-bin/
-_dist/
-_build/
-
 # Dependencies
 vendor/
+
+# Build artifacts
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Go-specific
+*.test
+*.prof
+go.mod.lock
 
 # Logs
 *.log
@@ -30,12 +31,15 @@ vendor/
 *.swp
 *.swo
 
+# OS
+.DS_Store
+Thumbs.db
+
 # Coverage
 coverage/
 htmlcov/
 .coverage
 
-# OS
-.DS_Store
-Thumbs.db
+# Temp files
+*.tmp
 ```
