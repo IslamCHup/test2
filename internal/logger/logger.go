@@ -1,36 +1,52 @@
 package logger
 
 import (
-	"log/slog"
-	"os"
-	"strings"
+"log"
+"os"
+"strings"
 )
 
-func parseLog(level string) slog.Level {
-	switch strings.ToLower(level) {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
-	}
+type Logger struct {
+info  *log.Logger
+error *log.Logger
+warn  *log.Logger
+debug *log.Logger
+level string
 }
 
-func InitLog(level string) *slog.Logger {
-	levelLog := parseLog(level)
-
-	handlersLogger := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: levelLog,
-	})
-
-	logger := slog.New(handlersLogger)
-	slog.SetDefault(logger)
-
-	slog.Info("logger инициализирован: ", "level", levelLog.String())
-
-	return logger
+func NewLogger(level string) *Logger {
+return &Logger{
+info:  log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile),
+error: log.New(os.Stderr, "[ERROR] ", log.Ldate|log.Ltime|log.Lshortfile),
+warn:  log.New(os.Stdout, "[WARN] ", log.Ldate|log.Ltime|log.Lshortfile),
+debug: log.New(os.Stdout, "[DEBUG] ", log.Ldate|log.Ltime|log.Lshortfile),
+level: strings.ToLower(level),
+}
 }
 
+func (l *Logger) Info(msg string, args ...interface{}) {
+if l.level != "debug" && l.level != "info" && l.level != "warn" && l.level != "error" {
+l.level = "info"
+}
+if l.level <= "info" {
+l.info.Printf(msg, args...)
+}
+}
+
+func (l *Logger) Error(msg string, args ...interface{}) {
+if l.level <= "error" {
+l.error.Printf(msg, args...)
+}
+}
+
+func (l *Logger) Warn(msg string, args ...interface{}) {
+if l.level <= "warn" {
+l.warn.Printf(msg, args...)
+}
+}
+
+func (l *Logger) Debug(msg string, args ...interface{}) {
+if l.level == "debug" {
+l.debug.Printf(msg, args...)
+}
+}
