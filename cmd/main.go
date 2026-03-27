@@ -14,6 +14,11 @@ import (
 	"github.com/islamchupanov/tz1/internal/service"
 )
 
+// @title Device API
+// @version 1.0
+// @description API for managing devices
+// @host localhost:8080
+// @BasePath /
 func main() {
 	cfg := config.Load()
 

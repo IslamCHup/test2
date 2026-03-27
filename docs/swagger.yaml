@@ -1,0 +1,190 @@
+basePath: /
+definitions:
+  github_com_islamchupanov_tz1_internal_dto.CreateDeviceRequest:
+    properties:
+      hostname:
+        type: string
+      ip:
+        type: string
+      location:
+        type: string
+    required:
+    - hostname
+    - ip
+    type: object
+  github_com_islamchupanov_tz1_internal_dto.DeviceResponse:
+    properties:
+      created_at:
+        type: string
+      hostname:
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      is_active:
+        type: boolean
+      location:
+        type: string
+    type: object
+  github_com_islamchupanov_tz1_internal_dto.UpdateDeviceRequest:
+    properties:
+      hostname:
+        type: string
+      ip:
+        type: string
+      is_active:
+        type: boolean
+      location:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for managing devices
+  title: Device API
+  version: "1.0"
+paths:
+  /devices:
+    get:
+      consumes:
+      - application/json
+      description: Get list of devices with optional filtering
+      parameters:
+      - description: Filter by is_active (true/false)
+        in: query
+        name: is_active
+        type: string
+      - description: Search by hostname (substring)
+        in: query
+        name: hostname
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.DeviceResponse'
+            type: array
+      summary: List all devices
+      tags:
+      - devices
+    post:
+      consumes:
+      - application/json
+      description: Create a new network device
+      parameters:
+      - description: Device data
+        in: body
+        name: device
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.CreateDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.DeviceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new device
+      tags:
+      - devices
+  /devices/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a device by marking it as inactive
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete device (soft delete)
+      tags:
+      - devices
+    get:
+      consumes:
+      - application/json
+      description: Get a specific device by its ID
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.DeviceResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get device by ID
+      tags:
+      - devices
+    put:
+      consumes:
+      - application/json
+      description: Update an existing device
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Device data
+        in: body
+        name: device
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.UpdateDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_islamchupanov_tz1_internal_dto.DeviceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update device
+      tags:
+      - devices
+swagger: "2.0"
