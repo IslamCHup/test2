@@ -1,48 +1,34 @@
 ```
+# Go build artifacts
+*.o
+*.a
+*.so
+*.exe
+*.dll
+*.dylib
+*.test
+*.prof
+
+# Go cache and modules
+vendor/
+go.mod.bak
+go.sum.bak
+
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build directories
 dist/
 build/
 target/
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.python-version
-*.so
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-*.tmp
-*.swp
-.DS_Store
-Thumbs.db
+# Environment
 .env
 .env.local
-.env.*
+*.env.*
 
-# Compiled and binary files
-*.class
-*.o
-*.exe
-*.dll
-*.so
-*.a
-*.obj
-*.out
+# Logs
+*.log
 
 # Editors
 .vscode/
@@ -50,15 +36,21 @@ Thumbs.db
 *.swp
 *.swo
 
-# System files
+# OS
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
 # Coverage
+.coverage
 coverage/
 htmlcov/
-.coverage
+
+# Python (if mixed project)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
 ```
