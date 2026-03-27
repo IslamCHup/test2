@@ -17,7 +17,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	logger := logger.InitLog(cfg.LogLevel)
+	logger := logger.InitLogger(cfg.LogLevel)
 
 	dbConn, err := database.InitDB(cfg.DB, logger)
 	if err != nil {

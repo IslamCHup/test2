@@ -2,27 +2,33 @@
 # Go build artifacts
 *.o
 *.a
-*.out
-*_test
+*.so
+*.exe
+*.dll
+*.dylib
+*.test
+*.prof
 
-# Go cache and modules
-go.mod.bak
-go.sum.bak
+# Go cache and tools
+go/pkg/
+go/build/
 vendor/
+*.mod
+*.sum
 
 # Dependencies
 node_modules/
-**/node_modules/
+vendor/
 
 # Build directories
-dist/
 build/
+dist/
 target/
 
-# Environment
+# Environment and config
 .env
 .env.local
-*.env.*
+.env.*
 
 # Logs
 *.log
@@ -48,7 +54,97 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
 *.so
-*.egg-info/
-.eggs/
+
+# Java (if mixed project)
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+target/
+.gradle/
+build/
+.settings/
+bin/
+gen/
+
+# C/C++ (if mixed project)
+*.i
+*.ii
+*.s
+*.su
+*.lo
+*.la
+.deps/
+.libs/
+aclocal.m4
+autom4te.cache/
+Makefile.in
+Makefile
+conftest*
+config.h*
+config.log
+config.status
+config.cache
+.libs/
+*.tab.c
+*.tab.h
+*.yacc.c
+*.lex.c
+*.output
+*.gcda
+*.gcno
+*.gcov
+*.lcov
+*.info
+
+# Ruby (if mixed project)
+*.gem
+*.rbc
+.bundle/
+.ruby-version
+.rbx/
+
+# Node.js (if mixed project)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+node_modules/
+jspm_packages/
+*.js.map
+*.ts.map
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+
+# Temporary files
+*.tmp
+*.temp
+*~
 ```
