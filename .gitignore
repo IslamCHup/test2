@@ -1,19 +1,41 @@
 ```
-# Compiled and build artifacts
-*.o
-*.obj
-*.out
 # Dependencies
-vendor/
-# Logs and temp files
-*.log
-*.tmp
-*.swp
+node_modules/
+
+# Build artifacts
+dist/
+build/
+*.js.map
+*.d.ts
+*.d.cts
+*.d.mts
+*.mjs
+*.cjs
+
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
+
 # Editors
 .vscode/
 .idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
 ```
