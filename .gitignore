@@ -1,45 +1,9 @@
 ```
-# Dependencies
-vendor/
-
-# Build artifacts
-*.o
-*.obj
-*.a
-*.so
-*.dylib
-*.dll
-*.exe
-*.out
-
-# Go-specific
-*.test
-*.prof
-go.mod.lock
-
-# Logs
-*.log
-
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Temp files
-*.tmp
+# Binaries
+bin/
 ```
