@@ -22,7 +22,9 @@ export function useDevices(options: UseDevicesOptions = {}) {
       });
       setDevices(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch devices');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch devices';
+      setError(errorMessage);
+      console.error('Error fetching devices:', err);
     } finally {
       setLoading(false);
     }
@@ -33,20 +35,41 @@ export function useDevices(options: UseDevicesOptions = {}) {
   }, [fetchDevices]);
 
   const createDevice = async (device: { hostname: string; ip: string; location?: string }) => {
-    const newDevice = await deviceApi.create(device);
-    setDevices((prev) => [...prev, newDevice]);
-    return newDevice;
+    try {
+      const newDevice = await deviceApi.create(device);
+      setDevices((prev) => [...prev, newDevice]);
+      return newDevice;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create device';
+      setError(errorMessage);
+      console.error('Error creating device:', err);
+      throw err;
+    }
   };
 
   const updateDevice = async (id: number, updates: { hostname?: string; ip?: string; location?: string; is_active?: boolean }) => {
-    const updatedDevice = await deviceApi.update(id, updates);
-    setDevices((prev) => prev.map((d) => (d.id === id ? updatedDevice : d)));
-    return updatedDevice;
+    try {
+      const updatedDevice = await deviceApi.update(id, updates);
+      setDevices((prev) => prev.map((d) => (d.id === id ? updatedDevice : d)));
+      return updatedDevice;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update device';
+      setError(errorMessage);
+      console.error('Error updating device:', err);
+      throw err;
+    }
   };
 
   const deleteDevice = async (id: number) => {
-    await deviceApi.delete(id);
-    setDevices((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await deviceApi.delete(id);
+      setDevices((prev) => prev.filter((d) => d.id !== id));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete device';
+      setError(errorMessage);
+      console.error('Error deleting device:', err);
+      throw err;
+    }
   };
 
   return {
@@ -57,5 +80,6 @@ export function useDevices(options: UseDevicesOptions = {}) {
     createDevice,
     updateDevice,
     deleteDevice,
+    clearError: () => setError(null),
   };
 }

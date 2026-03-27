@@ -1,6 +1,6 @@
 import { Device, CreateDeviceRequest, UpdateDeviceRequest } from '../types/device';
 
-const API_BASE = '/api/devices';
+const API_BASE = import.meta.env.VITE_API_URL || '/api/devices';
 
 export const deviceApi = {
   async getAll(params?: { is_active?: boolean; hostname?: string }): Promise<Device[]> {
