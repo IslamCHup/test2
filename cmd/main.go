@@ -36,9 +36,13 @@ func main() {
 	}
 
 	// Проверка подключения к БД через ping
-	if err := dbConn.DB().Ping(); err != nil {
-		appLogger.Error("database ping failed", "error", err)
-		os.Exit(1)
+	sqlDB, err := dbConn.DB()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := sqlDB.Ping(); err != nil {
+		log.Fatal(err)
 	}
 	appLogger.Info("database connection verified")
 
@@ -94,7 +98,7 @@ func main() {
 	}
 
 	// Закрытие соединения с БД
-	sqlDB, err := dbConn.DB()
+	sqlDB, err = dbConn.DB()
 	if err == nil {
 		if err := sqlDB.Close(); err != nil {
 			appLogger.Error("failed to close database connection", "error", err)
