@@ -4,15 +4,15 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/islamchupanov/tz1/internal/dto"
 	apperrors "github.com/islamchupanov/tz1/internal/errors"
 	"github.com/islamchupanov/tz1/internal/logger"
 	"github.com/islamchupanov/tz1/internal/model"
 	"github.com/islamchupanov/tz1/internal/service"
-
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type DeviceHandler struct {
@@ -38,7 +38,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	var req dto.CreateDeviceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid request body", "error", err.Error())
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -49,24 +49,18 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		IsActive: true,
 	}
 
-	h.logger.Info("handler: creating device", "hostname", device.Hostname, "ip", device.IP)
 	if err := h.service.Create(device); err != nil {
-		h.logger.Error("handler: failed to create device", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create device: " + err.Error()})
+		if err.Error() == "hostname cannot be empty" || err.Error() == "invalid ip address" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("failed to create device", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create device"})
 		return
 	}
-	h.logger.Info("handler: device created successfully", "id", device.ID)
 
-	response := dto.DeviceResponse{
-		ID:        device.ID,
-		Hostname:  device.Hostname,
-		IP:        device.IP,
-		Location:  device.Location,
-		IsActive:  device.IsActive,
-		CreatedAt: device.CreatedAt,
-	}
-
-	c.JSON(http.StatusCreated, response)
+	c.JSON(http.StatusCreated, toResponse(device))
 }
 
 // ListDevices godoc
@@ -77,40 +71,54 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 // @Produce json
 // @Param is_active query string false "Filter by is_active (true/false)"
 // @Param hostname query string false "Search by hostname (substring)"
+// @Param limit query int false "Limit number of results (max 100)"
+// @Param offset query int false "Offset for pagination"
 // @Success 200 {array} dto.DeviceResponse
+// @Failure 400 {object} map[string]string
 // @Router /devices [get]
 func (h *DeviceHandler) ListDevices(c *gin.Context) {
 	var isActive *bool
 	var hostname *string
 
-	if isActiveParam := c.Query("is_active"); isActiveParam != "" {
-		val := isActiveParam == "true"
-		isActive = &val
+	if v := c.Query("is_active"); v != "" {
+		parsed, err := strconv.ParseBool(v)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid is_active"})
+			return
+		}
+		isActive = &parsed
 	}
 
-	if hostnameParam := c.Query("hostname"); hostnameParam != "" {
-		hostname = &hostnameParam
+	if v := c.Query("hostname"); v != "" {
+		v = strings.TrimSpace(v)
+		hostname = &v
 	}
 
-	h.logger.Info("handler: fetching devices", "is_active", isActive, "hostname", hostname)
-	devices, err := h.service.List(isActive, hostname)
-	if err != nil {
-		h.logger.Error("handler: failed to fetch devices", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch devices: " + err.Error()})
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
 		return
 	}
-	h.logger.Info("handler: devices fetched successfully", "count", len(devices))
+	if limit > 100 {
+		limit = 100
+	}
 
-	response := make([]dto.DeviceResponse, len(devices))
-	for i, d := range devices {
-		response[i] = dto.DeviceResponse{
-			ID:        d.ID,
-			Hostname:  d.Hostname,
-			IP:        d.IP,
-			Location:  d.Location,
-			IsActive:  d.IsActive,
-			CreatedAt: d.CreatedAt,
-		}
+	offset, err := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if err != nil || offset < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid offset"})
+		return
+	}
+
+	devices, err := h.service.List(isActive, hostname, limit, offset)
+	if err != nil {
+		h.logger.Error("failed to fetch devices", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch devices"})
+		return
+	}
+
+	response := make([]dto.DeviceResponse, 0, len(devices))
+	for i := range devices {
+		response = append(response, toResponse(&devices[i]))
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -124,41 +132,29 @@ func (h *DeviceHandler) ListDevices(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Device ID"
 // @Success 200 {object} dto.DeviceResponse
+// @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /devices/{id} [get]
 func (h *DeviceHandler) GetDevice(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseID(c)
 	if err != nil {
-		h.logger.Warn("invalid device id", "id", idStr)
+		h.logger.Warn("invalid id", "id", c.Param("id"))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
 		return
 	}
 
-	h.logger.Info("handler: fetching device", "id", id)
-	device, err := h.service.GetByID(uint(id))
+	device, err := h.service.GetByID(id)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
-			h.logger.Warn("handler: device not found", "id", id)
+		if errors.Is(err, apperrors.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "device not found"})
 			return
 		}
-		h.logger.Error("handler: failed to fetch device", "id", id, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch device: " + err.Error()})
+		h.logger.Error("failed to fetch device", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch device"})
 		return
 	}
-	h.logger.Info("handler: device fetched successfully", "id", device.ID)
 
-	response := dto.DeviceResponse{
-		ID:        device.ID,
-		Hostname:  device.Hostname,
-		IP:        device.IP,
-		Location:  device.Location,
-		IsActive:  device.IsActive,
-		CreatedAt: device.CreatedAt,
-	}
-
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, toResponse(device))
 }
 
 // UpdateDevice godoc
@@ -174,10 +170,9 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /devices/{id} [put]
 func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseID(c)
 	if err != nil {
-		h.logger.Warn("invalid device id", "id", idStr)
+		h.logger.Warn("invalid id", "id", c.Param("id"))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
 		return
 	}
@@ -185,56 +180,28 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	var req dto.UpdateDeviceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("invalid request body", "error", err.Error())
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	h.logger.Info("handler: fetching device for update", "id", id)
-	existingDevice, err := h.service.GetByID(uint(id))
+	device, err := h.service.Update(id, req)
 	if err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
-			h.logger.Warn("handler: device not found for update", "id", id)
+		if errors.Is(err, apperrors.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "device not found"})
 			return
 		}
-		h.logger.Error("handler: failed to fetch device for update", "id", id, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch device: " + err.Error()})
+
+		if err.Error() == "hostname cannot be empty" || err.Error() == "invalid ip address" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("failed to update device", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update device"})
 		return
 	}
 
-	// Update fields if provided
-	if req.Hostname != nil {
-		existingDevice.Hostname = *req.Hostname
-	}
-	if req.IP != nil {
-		existingDevice.IP = *req.IP
-	}
-	if req.Location != nil {
-		existingDevice.Location = *req.Location
-	}
-	if req.IsActive != nil {
-		existingDevice.IsActive = *req.IsActive
-	}
-
-	h.logger.Info("handler: updating device", "id", id)
-	updatedDevice, err := h.service.Update(uint(id), existingDevice)
-	if err != nil {
-		h.logger.Error("handler: failed to update device", "id", id, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update device: " + err.Error()})
-		return
-	}
-	h.logger.Info("handler: device updated successfully", "id", updatedDevice.ID)
-
-	response := dto.DeviceResponse{
-		ID:        updatedDevice.ID,
-		Hostname:  updatedDevice.Hostname,
-		IP:        updatedDevice.IP,
-		Location:  updatedDevice.Location,
-		IsActive:  updatedDevice.IsActive,
-		CreatedAt: updatedDevice.CreatedAt,
-	}
-
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, toResponse(device))
 }
 
 // DeleteDevice godoc
@@ -245,29 +212,47 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 // @Produce json
 // @Param id path int true "Device ID"
 // @Success 204
+// @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /devices/{id} [delete]
 func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseID(c)
 	if err != nil {
-		h.logger.Warn("invalid device id", "id", idStr)
+		h.logger.Warn("invalid id", "id", c.Param("id"))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
 		return
 	}
 
-	h.logger.Info("handler: deleting device", "id", id)
-	if err := h.service.SoftDelete(uint(id)); err != nil {
-		if errors.Is(err, apperrors.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
-			h.logger.Warn("handler: device not found for delete", "id", id)
+	if err := h.service.SoftDelete(id); err != nil {
+		if errors.Is(err, apperrors.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "device not found"})
 			return
 		}
-		h.logger.Error("handler: failed to delete device", "id", id, "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete device: " + err.Error()})
+		h.logger.Error("failed to delete device", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete device"})
 		return
 	}
-	h.logger.Info("handler: device deleted successfully", "id", id)
 
 	c.Status(http.StatusNoContent)
+}
+
+// ================= HELPERS =================
+
+func parseID(c *gin.Context) (uint, error) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
+}
+
+func toResponse(d *model.Device) dto.DeviceResponse {
+	return dto.DeviceResponse{
+		ID:        d.ID,
+		Hostname:  d.Hostname,
+		IP:        d.IP,
+		Location:  d.Location,
+		IsActive:  d.IsActive,
+		CreatedAt: d.CreatedAt,
+	}
 }
