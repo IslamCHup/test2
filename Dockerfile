@@ -1,24 +1,26 @@
+
 FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache git make
+RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o app ./cmd/main.go
 
-FROM alpine:latest
+FROM gcr.io/distroless/static-debian12
 
-RUN apk --no-cache add ca-certificates tzdata
+WORKDIR /
 
-WORKDIR /root/
-
-COPY --from=builder /app/main .
+COPY --from=builder /app/app /app
 
 EXPOSE 8080
 
-CMD ["./main"]
+USER nonroot:nonroot
+
+ENTRYPOINT ["/app"]

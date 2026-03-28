@@ -1,13 +1,17 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
+	appErrors "github.com/islamchupanov/tz1/internal/errors"
+	"github.com/islamchupanov/tz1/internal/dto"
 	"github.com/islamchupanov/tz1/internal/logger"
 	"github.com/islamchupanov/tz1/internal/model"
 )
 
-// MockDeviceRepository implements DeviceRepository interface for testing
+// ================= MOCK =================
+
 type MockDeviceRepository struct {
 	devices map[uint]*model.Device
 	nextID  uint
@@ -28,53 +32,78 @@ func (m *MockDeviceRepository) Create(device *model.Device) error {
 }
 
 func (m *MockDeviceRepository) GetByID(id uint) (*model.Device, error) {
-	if device, ok := m.devices[id]; ok {
-		return device, nil
+	device, ok := m.devices[id]
+	if !ok {
+		return nil, appErrors.ErrNotFound
 	}
-	return nil, nil // Simulate not found
+	return device, nil
 }
 
-func (m *MockDeviceRepository) List(isActive *bool, hostname *string) ([]model.Device, error) {
+func (m *MockDeviceRepository) List(isActive *bool, hostname *string, limit, offset int) ([]model.Device, error) {
 	var result []model.Device
+
 	for _, device := range m.devices {
 		if isActive != nil && device.IsActive != *isActive {
 			continue
 		}
+
 		if hostname != nil && *hostname != "" {
-			// Simple substring match (case-insensitive)
-			found := false
-			for i := 0; i <= len(device.Hostname)-len(*hostname); i++ {
-				if device.Hostname[i:i+len(*hostname)] == *hostname {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !strings.Contains(strings.ToLower(device.Hostname), strings.ToLower(*hostname)) {
 				continue
 			}
 		}
+
 		result = append(result, *device)
 	}
-	return result, nil
+
+	// pagination
+	start := offset
+	end := offset + limit
+
+	if start > len(result) {
+		return []model.Device{}, nil
+	}
+	if end > len(result) {
+		end = len(result)
+	}
+
+	return result[start:end], nil
 }
 
-func (m *MockDeviceRepository) Update(device *model.Device) error {
-	if _, ok := m.devices[device.ID]; ok {
-		m.devices[device.ID] = device
-		return nil
+func (m *MockDeviceRepository) Update(id uint, req dto.UpdateDeviceRequest) error {
+	device, ok := m.devices[id]
+	if !ok {
+		return appErrors.ErrNotFound
 	}
+
+	if req.Hostname != nil {
+		device.Hostname = *req.Hostname
+	}
+	if req.IP != nil {
+		device.IP = *req.IP
+	}
+	if req.Location != nil {
+		device.Location = *req.Location
+	}
+	if req.IsActive != nil {
+		device.IsActive = *req.IsActive
+	}
+
 	return nil
 }
 
 func (m *MockDeviceRepository) SoftDelete(id uint) error {
-	if device, ok := m.devices[id]; ok {
-		device.IsActive = false
-		return nil
+	device, ok := m.devices[id]
+	if !ok {
+		return appErrors.ErrNotFound
 	}
+
+	device.IsActive = false
 	return nil
 }
 
-// TestCreateDevice tests device creation
+// ================= TESTS =================
+
 func TestCreateDevice(t *testing.T) {
 	repo := NewMockDeviceRepository()
 	log := logger.InitLog("debug")
@@ -83,64 +112,78 @@ func TestCreateDevice(t *testing.T) {
 	device := &model.Device{
 		Hostname: "test-router",
 		IP:       "192.168.1.1",
-		Location: "datacenter-1",
+		Location: "dc",
 		IsActive: true,
 	}
 
 	err := service.Create(device)
 	if err != nil {
-		t.Fatalf("Create() error = %v", err)
+		t.Fatalf("Create error: %v", err)
 	}
 
 	if device.ID == 0 {
-		t.Error("Create() did not assign ID to device")
-	}
-
-	if device.Hostname != "test-router" {
-		t.Errorf("Create() hostname = %v, want test-router", device.Hostname)
+		t.Fatal("expected ID to be set")
 	}
 }
 
-// TestGetByIDDevice tests getting device by ID
-func TestGetByIDDevice(t *testing.T) {
+func TestCreateDevice_InvalidIP(t *testing.T) {
 	repo := NewMockDeviceRepository()
 	log := logger.InitLog("debug")
 	service := NewDeviceService(repo, log)
 
-	// Create a device first
 	device := &model.Device{
-		Hostname: "test-switch",
-		IP:       "192.168.1.2",
-		Location: "office",
+		Hostname: "test",
+		IP:       "invalid-ip",
+	}
+
+	err := service.Create(device)
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
+func TestGetByID(t *testing.T) {
+	repo := NewMockDeviceRepository()
+	log := logger.InitLog("debug")
+	service := NewDeviceService(repo, log)
+
+	device := &model.Device{
+		Hostname: "test",
+		IP:       "192.168.1.1",
+		Location: "loc",
 		IsActive: true,
 	}
 	repo.Create(device)
 
-	// Get the device
 	found, err := service.GetByID(device.ID)
 	if err != nil {
-		t.Fatalf("GetByID() error = %v", err)
+		t.Fatalf("GetByID error: %v", err)
 	}
 
 	if found.ID != device.ID {
-		t.Errorf("GetByID() ID = %v, want %v", found.ID, device.ID)
-	}
-
-	if found.Hostname != "test-switch" {
-		t.Errorf("GetByID() hostname = %v, want test-switch", found.Hostname)
+		t.Errorf("wrong id")
 	}
 }
 
-// TestListDevicesWithFilter tests listing devices with filters
-func TestListDevicesWithFilter(t *testing.T) {
+func TestGetByID_NotFound(t *testing.T) {
 	repo := NewMockDeviceRepository()
 	log := logger.InitLog("debug")
 	service := NewDeviceService(repo, log)
 
-	// Create test devices
+	_, err := service.GetByID(999)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestListDevices(t *testing.T) {
+	repo := NewMockDeviceRepository()
+	log := logger.InitLog("debug")
+	service := NewDeviceService(repo, log)
+
 	devices := []*model.Device{
 		{Hostname: "router-main", IP: "192.168.1.1", Location: "dc1", IsActive: true},
-		{Hostname: "switch-floor1", IP: "192.168.1.2", Location: "office", IsActive: true},
+		{Hostname: "switch", IP: "192.168.1.2", Location: "office", IsActive: true},
 		{Hostname: "router-backup", IP: "192.168.1.3", Location: "dc2", IsActive: false},
 	}
 
@@ -148,86 +191,106 @@ func TestListDevicesWithFilter(t *testing.T) {
 		repo.Create(d)
 	}
 
-	// Test filtering by is_active
-	activeTrue := true
-	activeDevices, err := service.List(&activeTrue, nil)
+	active := true
+	list, err := service.List(&active, nil, 10, 0)
 	if err != nil {
-		t.Fatalf("List() error = %v", err)
+		t.Fatalf("List error: %v", err)
 	}
 
-	if len(activeDevices) != 2 {
-		t.Errorf("List() returned %d active devices, want 2", len(activeDevices))
+	if len(list) != 2 {
+		t.Errorf("expected 2 active devices")
 	}
 
-	// Test filtering by hostname substring
-	searchTerm := "router"
-	routerDevices, err := service.List(nil, &searchTerm)
+	search := "router"
+	list, err = service.List(nil, &search, 10, 0)
 	if err != nil {
-		t.Fatalf("List() error = %v", err)
+		t.Fatalf("List error: %v", err)
 	}
 
-	if len(routerDevices) != 2 {
-		t.Errorf("List() returned %d router devices, want 2", len(routerDevices))
+	if len(list) != 2 {
+		t.Errorf("expected 2 router devices")
 	}
 }
 
-// TestUpdateDevice tests device update
+func TestListDevices_Pagination(t *testing.T) {
+	repo := NewMockDeviceRepository()
+	log := logger.InitLog("debug")
+	service := NewDeviceService(repo, log)
+
+	for i := 0; i < 5; i++ {
+		repo.Create(&model.Device{
+			Hostname: "device",
+			IP:       "192.168.1.1",
+			IsActive: true,
+		})
+	}
+
+	list, err := service.List(nil, nil, 2, 0)
+	if err != nil {
+		t.Fatalf("List error: %v", err)
+	}
+
+	if len(list) != 2 {
+		t.Errorf("expected 2 devices, got %d", len(list))
+	}
+}
+
 func TestUpdateDevice(t *testing.T) {
 	repo := NewMockDeviceRepository()
 	log := logger.InitLog("debug")
 	service := NewDeviceService(repo, log)
 
-	// Create a device
 	device := &model.Device{
-		Hostname: "old-hostname",
+		Hostname: "old",
 		IP:       "192.168.1.1",
-		Location: "old-location",
+		Location: "loc",
 		IsActive: true,
 	}
 	repo.Create(device)
 
-	// Update the device
-	device.Hostname = "new-hostname"
-	device.IP = "10.0.0.1"
+	newHostname := "new"
+	newIP := "192.168.1.2"
 
-	updated, err := service.Update(device.ID, device)
+	req := dto.UpdateDeviceRequest{
+		Hostname: &newHostname,
+		IP:       &newIP,
+	}
+
+	updated, err := service.Update(device.ID, req)
 	if err != nil {
-		t.Fatalf("Update() error = %v", err)
+		t.Fatalf("Update error: %v", err)
 	}
 
-	if updated.Hostname != "new-hostname" {
-		t.Errorf("Update() hostname = %v, want new-hostname", updated.Hostname)
+	if updated.Hostname != "new" {
+		t.Errorf("hostname not updated")
 	}
 
-	if updated.IP != "10.0.0.1" {
-		t.Errorf("Update() ip = %v, want 10.0.0.1", updated.IP)
+	if updated.IP != "192.168.1.2" {
+		t.Errorf("ip not updated")
 	}
 }
 
-// TestSoftDeleteDevice tests soft delete functionality
 func TestSoftDeleteDevice(t *testing.T) {
 	repo := NewMockDeviceRepository()
 	log := logger.InitLog("debug")
 	service := NewDeviceService(repo, log)
 
-	// Create a device
 	device := &model.Device{
 		Hostname: "to-delete",
 		IP:       "192.168.1.1",
-		Location: "somewhere",
+		Location: "loc",
 		IsActive: true,
 	}
 	repo.Create(device)
 
-	// Soft delete
 	err := service.SoftDelete(device.ID)
 	if err != nil {
-		t.Fatalf("SoftDelete() error = %v", err)
+		t.Fatalf("SoftDelete error: %v", err)
 	}
 
-	// Verify device is marked as inactive
 	found, _ := repo.GetByID(device.ID)
+
 	if found.IsActive {
-		t.Error("SoftDelete() did not set IsActive to false")
+		t.Errorf("device not deactivated")
 	}
 }

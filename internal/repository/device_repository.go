@@ -1,8 +1,11 @@
 package repository
 
 import (
-	"time"
+	"errors"
+	"strings"
 
+	appErrors "github.com/islamchupanov/tz1/internal/errors"
+	"github.com/islamchupanov/tz1/internal/dto"
 	"github.com/islamchupanov/tz1/internal/logger"
 	"github.com/islamchupanov/tz1/internal/model"
 	"gorm.io/gorm"
@@ -11,8 +14,8 @@ import (
 type DeviceRepository interface {
 	Create(device *model.Device) error
 	GetByID(id uint) (*model.Device, error)
-	List(isActive *bool, hostname *string) ([]model.Device, error)
-	Update(device *model.Device) error
+	List(isActive *bool, hostname *string, limit, offset int) ([]model.Device, error)
+	Update(id uint, req dto.UpdateDeviceRequest) error
 	SoftDelete(id uint) error
 }
 
@@ -29,109 +32,128 @@ func NewDeviceRepository(db *gorm.DB, logger *logger.Logger) DeviceRepository {
 }
 
 func (r *deviceRepo) Create(device *model.Device) error {
-	r.logger.Info("creating device", "hostname", device.Hostname, "ip", device.IP, "location", device.Location)
+	if r.logger != nil {
+		r.logger.Info("creating device",
+			"hostname", device.Hostname,
+			"ip", device.IP,
+			"location", device.Location,
+		)
+	}
 
 	if err := r.db.Create(device).Error; err != nil {
-		r.logger.Error("failed to create device", "error", err)
+		if r.logger != nil {
+			r.logger.Error("failed to create device", "error", err)
+		}
 		return err
 	}
 
-	r.logger.Info("device created", "id", device.ID)
 	return nil
 }
 
 func (r *deviceRepo) GetByID(id uint) (*model.Device, error) {
 	var device model.Device
 
-	r.logger.Info("fetching device by id", "id", id)
-
-	err := r.db.
-		Where("id = ? AND deleted_at IS NULL", id).
-		First(&device).Error
-
+	err := r.db.First(&device, id).Error
 	if err != nil {
-		r.logger.Error("failed to fetch device", "id", id, "error", err)
+		if r.logger != nil {
+			r.logger.Error("failed to fetch device", "id", id, "error", err)
+		}
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, appErrors.ErrNotFound
+		}
+
 		return nil, err
 	}
-
-	r.logger.Info("device fetched", "id", device.ID, "hostname", device.Hostname)
 
 	return &device, nil
 }
 
-func (r *deviceRepo) List(isActive *bool, hostname *string) ([]model.Device, error) {
+func (r *deviceRepo) List(isActive *bool, hostname *string, limit, offset int) ([]model.Device, error) {
 	var devices []model.Device
 
-	r.logger.Info("fetching devices list", "is_active", isActive, "hostname", hostname)
-
-	query := r.db.Where("deleted_at IS NULL")
+	query := r.db.Model(&model.Device{})
 
 	if isActive != nil {
 		query = query.Where("is_active = ?", *isActive)
 	}
 
 	if hostname != nil && *hostname != "" {
-		query = query.Where("LOWER(hostname) LIKE ?", "%"+*hostname+"%")
+		query = query.Where("LOWER(hostname) LIKE ?", "%"+strings.ToLower(*hostname)+"%")
+	}
+
+	// pagination
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	if offset > 0 {
+		query = query.Offset(offset)
 	}
 
 	if err := query.
-		Order("id asc").
+		Order("id ASC").
 		Find(&devices).Error; err != nil {
 
-		r.logger.Error("failed to fetch devices", "error", err)
+		if r.logger != nil {
+			r.logger.Error("failed to fetch devices", "error", err)
+		}
 		return nil, err
 	}
 
-	r.logger.Info("devices fetched", "count", len(devices))
 	return devices, nil
 }
 
-func (r *deviceRepo) Update(device *model.Device) error {
-	r.logger.Info("updating device", "id", device.ID)
+func (r *deviceRepo) Update(id uint, req dto.UpdateDeviceRequest) error {
+	updates := map[string]interface{}{}
+
+	if req.Hostname != nil {
+		updates["hostname"] = *req.Hostname
+	}
+	if req.IP != nil {
+		updates["ip"] = *req.IP
+	}
+	if req.Location != nil {
+		updates["location"] = *req.Location
+	}
+	if req.IsActive != nil {
+		updates["is_active"] = *req.IsActive
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
 
 	res := r.db.Model(&model.Device{}).
-		Where("id = ? AND deleted_at IS NULL", device.ID).
-		Updates(map[string]interface{}{
-			"hostname":  device.Hostname,
-			"ip":        device.IP,
-			"location":  device.Location,
-			"is_active": device.IsActive,
-		})
+		Where("id = ?", id).
+		Updates(updates)
 
 	if res.Error != nil {
-		r.logger.Error("failed to update device", "id", device.ID, "error", res.Error)
+		if r.logger != nil {
+			r.logger.Error("failed to update device", "id", id, "error", res.Error)
+		}
 		return res.Error
 	}
 
 	if res.RowsAffected == 0 {
-		r.logger.Warn("device not found for update", "id", device.ID)
-		return gorm.ErrRecordNotFound
+		return appErrors.ErrNotFound
 	}
 
-	r.logger.Info("device updated", "id", device.ID)
 	return nil
 }
 
 func (r *deviceRepo) SoftDelete(id uint) error {
-	r.logger.Info("soft deleting device", "id", id)
-
-	res := r.db.Model(&model.Device{}).
-		Where("id = ? AND deleted_at IS NULL", id).
-		Updates(map[string]interface{}{
-			"deleted_at": time.Now(),
-			"is_active":  false,
-		})
+	res := r.db.Delete(&model.Device{}, id)
 
 	if res.Error != nil {
-		r.logger.Error("failed to soft delete device", "id", id, "error", res.Error)
+		if r.logger != nil {
+			r.logger.Error("failed to delete device", "id", id, "error", res.Error)
+		}
 		return res.Error
 	}
 
 	if res.RowsAffected == 0 {
-		r.logger.Warn("device not found for delete", "id", id)
-		return gorm.ErrRecordNotFound
+		return appErrors.ErrNotFound
 	}
 
-	r.logger.Info("device soft deleted", "id", id)
 	return nil
 }

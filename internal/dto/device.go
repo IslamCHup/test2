@@ -3,14 +3,14 @@ package dto
 import "time"
 
 type CreateDeviceRequest struct {
-	Hostname string `json:"hostname" binding:"required"`
+	Hostname string `json:"hostname" binding:"required,min=1,max=255"`
 	IP       string `json:"ip" binding:"required,ip"`
-	Location string `json:"location"`
+	Location string `json:"location" binding:"required"`
 }
 
 type UpdateDeviceRequest struct {
-	Hostname *string `json:"hostname"`
-	IP       *string `json:"ip"`
+	Hostname *string `json:"hostname" binding:"omitempty,min=1,max=255"`
+	IP       *string `json:"ip" binding:"omitempty,ip"`
 	Location *string `json:"location"`
 	IsActive *bool   `json:"is_active"`
 }
