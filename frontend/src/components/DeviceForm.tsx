@@ -5,44 +5,50 @@ interface DeviceFormProps {
   device?: Device | null;
   onSubmit: (data: { hostname: string; ip: string; location?: string; is_active?: boolean }) => Promise<void>;
   onCancel: () => void;
+  error?: string | null;
 }
 
-export function DeviceForm({ device, onSubmit, onCancel }: DeviceFormProps) {
+export function DeviceForm({ device, onSubmit, onCancel, error }: DeviceFormProps) {
   const [hostname, setHostname] = useState('');
   const [ip, setIp] = useState('');
   const [location, setLocation] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (device) {
       setHostname(device.hostname);
       setIp(device.ip);
-      setLocation(device.location);
+      setLocation(device.location ?? '');
       setIsActive(device.is_active);
+    } else {
+      // Reset form when creating new device
+      setHostname('');
+      setIp('');
+      setLocation('');
+      setIsActive(true);
     }
   }, [device]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
 
     try {
       await onSubmit({ hostname, ip, location: location || undefined, is_active: isActive });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Operation failed');
+      // Error is handled by parent component via the error prop
+      console.error('Form submission error:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="device-form">
+    <form onSubmit={handleSubmit} className="device-form" aria-label={device ? 'Edit device form' : 'Create device form'}>
       <h2>{device ? 'Edit Device' : 'Add Device'}</h2>
       
-      {error && <div className="error">{error}</div>}
+      {error && <div className="error" role="alert">{error}</div>}
       
       <div className="form-group">
         <label htmlFor="hostname">Hostname *</label>
@@ -53,6 +59,8 @@ export function DeviceForm({ device, onSubmit, onCancel }: DeviceFormProps) {
           onChange={(e) => setHostname(e.target.value)}
           required
           placeholder="e.g., router-01"
+          disabled={submitting}
+          autoComplete="off"
         />
       </div>
       
@@ -65,6 +73,8 @@ export function DeviceForm({ device, onSubmit, onCancel }: DeviceFormProps) {
           onChange={(e) => setIp(e.target.value)}
           required
           placeholder="e.g., 192.168.1.1"
+          disabled={submitting}
+          autoComplete="off"
         />
       </div>
       
@@ -76,6 +86,8 @@ export function DeviceForm({ device, onSubmit, onCancel }: DeviceFormProps) {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           placeholder="e.g., Data Center A"
+          disabled={submitting}
+          autoComplete="off"
         />
       </div>
       
@@ -85,6 +97,7 @@ export function DeviceForm({ device, onSubmit, onCancel }: DeviceFormProps) {
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
+            disabled={submitting}
           />
           Active
         </label>

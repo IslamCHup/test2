@@ -11,6 +11,13 @@ export function useDevices(options: UseDevicesOptions = {}) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Ref to track if component is mounted to prevent setState after unmount
+  const isMountedRef = useRef(true);
+  // Ref to store the latest options to avoid stale closures
+  const optionsRef = useRef(options);
+  // AbortController ref for cancelling pending requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const requestIdRef = useRef(0);
   const isMountedRef = useRef(true);
@@ -50,11 +57,12 @@ export function useDevices(options: UseDevicesOptions = {}) {
         setLoading(false);
       }
     }
-  }, [options.isActive, options.hostname]);
+  }, []);
 
+  // Fetch devices when options change
   useEffect(() => {
     fetchDevices();
-  }, [fetchDevices]);
+  }, [fetchDevices, options.isActive, options.hostname]);
 
   // ================= CREATE =================
 

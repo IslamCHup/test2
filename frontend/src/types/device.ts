@@ -2,7 +2,7 @@ export interface Device {
   id: number;
   hostname: string;
   ip: string;
-  location: string;
+  location: string | null;
   is_active: boolean;
   created_at: string;
 }

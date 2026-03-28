@@ -19,10 +19,7 @@ _output/
 # Environment specific
 .env
 .env.local
-*.env.*
-
-# Logs
-*.log
+.env.*
 
 # Temporary files
 *.tmp
@@ -35,6 +32,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*.tmp
 
 # Coverage
 coverage/
