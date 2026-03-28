@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 type Config struct {
 	Env      string
@@ -41,4 +44,21 @@ func Load() *Config {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 	}
+}
+
+// Validate проверяет обязательные переменные конфигурации
+func (c *Config) Validate() error {
+	if c.DB.Host == "" {
+		return fmt.Errorf("DB_HOST is required")
+	}
+	if c.DB.Port == "" {
+		return fmt.Errorf("DB_PORT is required")
+	}
+	if c.DB.User == "" {
+		return fmt.Errorf("DB_USER is required")
+	}
+	if c.DB.Name == "" {
+		return fmt.Errorf("DB_NAME is required")
+	}
+	return nil
 }

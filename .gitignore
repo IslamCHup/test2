@@ -2,27 +2,21 @@
 # Go build artifacts
 *.o
 *.a
-*.so
-*.exe
-*.dll
-*.dylib
+*.out
 *.test
 *.prof
+*.syso
 
-# Go cache and modules
-vendor/
-go.mod.bak
-go.sum.bak
+# Go cache directories
+go/pkg/mod/
+go/build/
 
-# Dependencies
-node_modules/
+# Binaries
+bin/
+_dist/
+_output/
 
-# Build directories
-dist/
-build/
-target/
-
-# Environment
+# Environment specific
 .env
 .env.local
 *.env.*
@@ -30,27 +24,32 @@ target/
 # Logs
 *.log
 
+# Temporary files
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
 # Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
 # Coverage
-.coverage
 coverage/
-htmlcov/
+cover.out
+*.coverprofile
 
-# Python (if mixed project)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
+# Test artifacts
+_testmain.go
+*.jar
+*.war
+*.class
+*.dex
+
+# Build outputs
+dist/
+build/
+target/
 ```
