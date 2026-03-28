@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Device } from '../types/device';
 import { deviceApi } from '../api/deviceApi';
 
@@ -11,28 +11,80 @@ export function useDevices(options: UseDevicesOptions = {}) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Ref to track if component is mounted to prevent setState after unmount
+  const isMountedRef = useRef(true);
+  // Ref to store the latest options to avoid stale closures
+  const optionsRef = useRef(options);
+  // AbortController ref for cancelling pending requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchDevices = useCallback(async () => {
+  // Keep options ref up to date
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Cancel any pending request on unmount
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
+
+  const fetchDevices = useCallback(async (signal?: AbortSignal) => {
+    // Cancel previous request if still pending
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+    const currentSignal = signal || abortControllerRef.current.signal;
+
+    // Use current options from ref to avoid stale closures
+    const currentOptions = optionsRef.current;
+    
     setLoading(true);
     setError(null);
+    
     try {
       const data = await deviceApi.getAll({
-        is_active: options.isActive,
-        hostname: options.hostname,
-      });
-      setDevices(data);
+        is_active: currentOptions.isActive,
+        hostname: currentOptions.hostname,
+      }, currentSignal);
+      
+      // Only update state if component is still mounted and request wasn't aborted
+      if (isMountedRef.current && !currentSignal.aborted) {
+        setDevices(data);
+      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch devices';
-      setError(errorMessage);
-      console.error('Error fetching devices:', err);
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      
+      if (isMountedRef.current) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch devices';
+        setError(errorMessage);
+        console.error('Error fetching devices:', err);
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current && !currentSignal.aborted) {
+        setLoading(false);
+      }
     }
-  }, [options.isActive, options.hostname]);
+  }, []);
 
+  // Fetch devices when options change
   useEffect(() => {
     fetchDevices();
-  }, [fetchDevices]);
+  }, [fetchDevices, options.isActive, options.hostname]);
 
   const createDevice = async (device: { hostname: string; ip: string; location?: string }) => {
     try {

@@ -3,7 +3,7 @@ import { Device, CreateDeviceRequest, UpdateDeviceRequest } from '../types/devic
 const API_BASE = import.meta.env.VITE_API_URL || '/api/devices';
 
 export const deviceApi = {
-  async getAll(params?: { is_active?: boolean; hostname?: string }): Promise<Device[]> {
+  async getAll(params?: { is_active?: boolean; hostname?: string }, signal?: AbortSignal): Promise<Device[]> {
     const searchParams = new URLSearchParams();
     if (params?.is_active !== undefined) {
       searchParams.set('is_active', String(params.is_active));
@@ -15,15 +15,28 @@ export const deviceApi = {
     const query = searchParams.toString();
     const url = query ? `${API_BASE}?${query}` : API_BASE;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+    });
+    
     if (!response.ok) {
       throw new Error(`Failed to fetch devices: ${response.statusText}`);
     }
     return response.json();
   },
 
-  async getById(id: number): Promise<Device> {
-    const response = await fetch(`${API_BASE}/${id}`);
+  async getById(id: number, signal?: AbortSignal): Promise<Device> {
+    const response = await fetch(`${API_BASE}/${id}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal,
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch device: ${response.statusText}`);
     }

@@ -1,56 +1,45 @@
 ```
-# Go build artifacts
-*.o
-*.a
-*.so
-*.exe
-*.dll
-*.dylib
-*.test
-*.prof
-
-# Go cache and modules
-vendor/
-go.mod.bak
-go.sum.bak
-
 # Dependencies
 node_modules/
 
-# Build directories
+# Build outputs
 dist/
 build/
-target/
+coverage/
+htmlcov/
 
-# Environment
+# Environment variables
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs
-*.log
-
-# Editors
+# IDE specific
 .vscode/
 .idea/
 *.swp
 *.swo
+*.tmp
 
-# OS
-.DS_Store
-Thumbs.db
+# Logs
+*.log
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# Python (if mixed project)
+# Python specific
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-venv/
-.venv/
+*.so
+*.egg-info/
+.eggs/
+
+# Go specific
+*.o
+*.a
+*.out
+
+# TypeScript/JavaScript build artifacts
+*.tsbuildinfo
+.next/
+.nuxt/
 ```

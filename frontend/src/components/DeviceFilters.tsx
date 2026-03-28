@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface DeviceFiltersProps {
   hostname: string;
   isActiveFilter: string;
@@ -5,14 +7,14 @@ interface DeviceFiltersProps {
   onIsActiveFilterChange: (value: string) => void;
 }
 
-export function DeviceFilters({
+export const DeviceFilters = memo(function DeviceFilters({
   hostname,
   isActiveFilter,
   onHostnameChange,
   onIsActiveFilterChange,
 }: DeviceFiltersProps) {
   return (
-    <div className="filters">
+    <div className="filters" role="search">
       <div className="filter-group">
         <label htmlFor="hostname-filter">Search by Hostname:</label>
         <input
@@ -21,6 +23,7 @@ export function DeviceFilters({
           value={hostname}
           onChange={(e) => onHostnameChange(e.target.value)}
           placeholder="Enter hostname..."
+          aria-label="Filter by hostname"
         />
       </div>
       
@@ -30,6 +33,7 @@ export function DeviceFilters({
           id="status-filter"
           value={isActiveFilter}
           onChange={(e) => onIsActiveFilterChange(e.target.value)}
+          aria-label="Filter by status"
         >
           <option value="">All</option>
           <option value="true">Active</option>
@@ -38,4 +42,4 @@ export function DeviceFilters({
       </div>
     </div>
   );
-}
+});
