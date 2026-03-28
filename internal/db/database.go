@@ -1,6 +1,7 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -11,79 +12,91 @@ import (
 	"gorm.io/gorm"
 )
 
-func InitDB(cfg config.DBConfig, logger *logger.Logger) (*gorm.DB, error) {
-	dsn := fmt.Sprintf(
+func buildDSN(cfg config.DBConfig) string {
+	return fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-		cfg.Host, cfg.User, cfg.Password, cfg.Name, cfg.Port, cfg.SSLMode,
+		cfg.Host,
+		cfg.User,
+		cfg.Password,
+		cfg.Name,
+		cfg.Port,
+		cfg.SSLMode,
 	)
+}
+
+// InitDB — базовая инициализация БД
+func InitDB(cfg config.DBConfig, log *logger.Logger) (*gorm.DB, *sql.DB, error) {
+	dsn := buildDSN(cfg)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		if logger != nil {
-			logger.Error("failed to connect to postgres: %v", err)
+		if log != nil {
+			log.Error("failed to connect to postgres", "error", err)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		if logger != nil {
-			logger.Error("failed to get sql.DB from gorm.DB: %v", err)
+		if log != nil {
+			log.Error("failed to get sql.DB from gorm", "error", err)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
+	// pool настройки
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 	sqlDB.SetConnMaxLifetime(5 * time.Minute)
 
+	// проверка соединения
 	if err := sqlDB.Ping(); err != nil {
-		if logger != nil {
-			logger.Error("failed to ping db: %v", err)
+		if log != nil {
+			log.Error("failed to ping db", "error", err)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	logger.Info("connected to postgres: host=%s port=%s dbname=%s", cfg.Host, cfg.Port, cfg.Name)
+	if log != nil {
+		log.Info("connected to postgres",
+			"host", cfg.Host,
+			"port", cfg.Port,
+			"dbname", cfg.Name,
+		)
+	}
 
-	return db, nil
+	return db, sqlDB, nil
 }
 
-// InitDBWithRetry инициализирует БД с retry логикой
-// Возвращает gorm.DB, sql.DB и ошибку
-func InitDBWithRetry(cfg config.DBConfig, logger *logger.Logger, maxRetries int, delay time.Duration) (*gorm.DB, interface{}, error) {
-	var db *gorm.DB
-	var err error
+// InitDBWithRetry — инициализация с retry
+func InitDBWithRetry(
+	cfg config.DBConfig,
+	log *logger.Logger,
+	maxRetries int,
+	delay time.Duration,
+) (*gorm.DB, *sql.DB, error) {
+
+	var lastErr error
 
 	for i := 0; i < maxRetries; i++ {
-		db, err = gorm.Open(postgres.Open(fmt.Sprintf(
-			"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-			cfg.Host, cfg.User, cfg.Password, cfg.Name, cfg.Port, cfg.SSLMode,
-		)), &gorm.Config{})
-
+		db, sqlDB, err := InitDB(cfg, log)
 		if err == nil {
-			rawDB, rawErr := db.DB()
-			if rawErr == nil {
-				rawDB.SetMaxOpenConns(25)
-				rawDB.SetMaxIdleConns(5)
-				rawDB.SetConnMaxLifetime(5 * time.Minute)
-
-				if pingErr := rawDB.Ping(); pingErr == nil {
-					logger.Info("connected to postgres: host=%s port=%s dbname=%s", cfg.Host, cfg.Port, cfg.Name)
-					return db, rawDB, nil
-				} else {
-					err = pingErr
-				}
-			} else {
-				err = rawErr
-			}
+			return db, sqlDB, nil
 		}
 
+		lastErr = err
+
 		if i < maxRetries-1 {
-			logger.Warn("database connection failed, retrying...", "attempt", i+1, "max_retries", maxRetries, "error", err)
+			if log != nil {
+				log.Warn("database connection failed, retrying",
+					"attempt", i+1,
+					"max_retries", maxRetries,
+					"error", err,
+				)
+			}
 			time.Sleep(delay)
 		}
 	}
 
-	return nil, nil, fmt.Errorf("failed to connect to database after %d retries: %w", maxRetries, err)
+	return nil, nil, fmt.Errorf("failed to connect to database after %d retries: %w", maxRetries, lastErr)
 }

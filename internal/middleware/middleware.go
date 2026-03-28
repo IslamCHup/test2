@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// RequestID добавляет уникальный идентификатор запроса
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.GetHeader("X-Request-ID")
@@ -18,7 +17,6 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// Logger мидлварь для логирования HTTP запросов
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
